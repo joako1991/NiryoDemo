@@ -20,7 +20,7 @@ from utils import *
 from aruco import ArucoDetector
 
 # -- MUST Change these variables
-robot_ip_address = "10.131.12.39"  # IP address of Ned
+robot_ip_address = "10.131.12.8"  # IP address of Ned
 workspace_name = "paper_workspace"
 
 def init_robot(ip_address):
@@ -56,42 +56,19 @@ def grasp_operation(robot, pick_pose, height_offset_meters=0.1):
 
 def go_to_release_pose(robot):
     place_point_joints = objects.PoseObject(
-        x = 0.039,
-        y = -0.205,
-        z = 0.330,
-        roll = -2.356,
-        pitch = 0.533,
-        yaw = 2.954,
+        x = -0.0023,
+        y = -0.276,
+        z = 0.303,
+        roll = 0.0,
+        pitch = 0.881,
+        yaw = 3.139,
     )
 
     # Placing
     robot.arm.move_pose(place_point_joints)
 
 def release_operation(robot, tag_detector):
-    img = get_robot_image(robot)
-    img, n_aruco, rvecs, tvecs = tag_detector.pose_estimation(img)
-
-    if n_aruco:
-        place_point_joints = [
-            -1.0 * tvecs[0, 0, 0],
-            -1.0 * tvecs[0, 0, 1],
-            -1.0 * tvecs[0, 0, 2],
-            0,
-            0,
-            0]
-
-        import ipdb; ipdb.set_trace()
-
-        # Placing
-        # robot.arm.move_pose(place_point_joints)
-        robot.arm.move_relative(
-            place_point_joints,
-            "default_frame")
-
-        # Opening Gripper
-        robot.tool.open_gripper()
-    else:
-        print('ERROR: Could not detect the Aruco tag!!')
+    robot.tool.open_gripper()
 
 def get_robot_image(robot):
     mtx, dist = robot.vision.get_camera_intrinsics()
@@ -144,15 +121,6 @@ def show_stream(raw, thres_img):
         cv2.namedWindow('Thresholded img', cv2.WINDOW_NORMAL)
         cv2.imshow('Thresholded img', thres_img)
 
-        contour = biggest_contour_finder(thres_img)
-        if contour is not None and len(contour) != 0:
-            img_thresh_rgb = cv2.cvtColor(thres_img, cv2.COLOR_GRAY2BGR)
-            cv2.drawContours(img_thresh_rgb,
-                [contour],
-                -1,
-                (0, 255, 0))
-            cv2.namedWindow('Contours detected', cv2.WINDOW_NORMAL)
-            cv2.imshow('Contours detected', img_thresh_rgb)
         cv2.waitKey(20)
 
 def main():
@@ -166,21 +134,17 @@ def main():
 
     while is_running:
         # Moving to observation pose
-        # go_to_observation_point(niryo_robot)
+        go_to_observation_point(niryo_robot)
         img = get_robot_image(niryo_robot)
-        img, n_aruco, rvecs, tvecs = tag_det.pose_estimation(img)
-        print('TVECS: ({:6.5f}, {:6.5f}, {:6.5f})'.format(tvecs[0, 0, 1], tvecs[0, 0, 0], tvecs[0, 0, 2]))
-        cv2.namedWindow('Aruco', cv2.WINDOW_NORMAL)
-        cv2.imshow('Aruco', img)
 
         key = cv2.waitKey(20)
         if key == ord('q') or key == ord('Q'):
             is_running = False
-        continue
+            continue
+
         obj_found, obj_pose, work_space_img, thresholded_img = detect_pieces(niryo_robot, img)
 
         show_stream(work_space_img, thresholded_img)
-
 
         if not obj_found:
             print("Unable to find markers")
@@ -190,7 +154,6 @@ def main():
             grasp_operation(niryo_robot, obj_pose, height_offset_meters=0.15)
             go_to_release_pose(niryo_robot)
             release_operation(niryo_robot, tag_det)
-
 
     niryo_robot.end()
     cv2.destroyAllWindows()
